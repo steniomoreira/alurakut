@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import MainGrid from '../src/components/MainGrid'
 import Box from '../src/components/Box'
 import { AlurakutMenu, AlurakutProfileSidebarMenuDefault, OrkutNostalgicIconSet } from '../src/lib/AlurakutCommons';
@@ -20,35 +20,101 @@ function ProfileSidebar({githubUser}) {
   )
 }
 
+function ProfileRelationsBox(props){
+  return (
+    <ProfileRelationsBoxWrapper>
+      <h2 className="smallTitle">
+        {props.title} ({props.items.length})
+      </h2>
+
+      {/* <ul>
+        {usersFavorites.map((user, index) => (
+            <li key={index}>
+              <a href={`/users/${user}`} >
+                <img src={`http://github.com/${user}.png`} />
+                <span>{user}</span>
+              </a>
+            </li>
+        ))}
+      </ul> */}
+    </ProfileRelationsBoxWrapper>
+  );
+}
+
 export default function Home() {
-  const [community, setCommunity] = useState([{
-    title: 'Alura',
-    image: 'alura-challenges.png',
-    url: 'https://github.com/alura-challenges'
-  }]);
+  const [community, setCommunity] = useState([]);
 
   const user = 'steniomoreira';
   const usersFavorites = [
     'juunegreiros',
     'omariosouto',
     'peas',
-    'rafaballerini',
-    'marcobrunodev',
-    'felipefialho'
-  ]
+    'diiegopaiivam',
+    'Isaachintosh',
+    'jamillyp'
+  ];
+
+  const [followers, setFollowers] = useState([]);
+
+  React.useEffect(() => {
+   fetch('https://api.github.com/users/steniomoreira/followers')
+    .then(function(response) {
+      return response.json();
+    })
+    .then(function(responseAll) {
+      setFollowers(responseAll)
+    });
+
+    //GraphQL
+    fetch('https://graphql.datocms.com/', {
+      method: 'POST',
+      headers: {
+        'Authorization': '4c9f94ee75bf2e0fa878975baecc65',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ "query": `query {
+        allCommunities {
+          id 
+          title
+          imageUrl
+          creatorSlug
+          urlMedia
+        }
+      }` })
+    })
+    .then((response) => response.json()) // Pega o retorno do response.json() e já retorna
+    .then((respostaCompleta) => {
+      const communityDatoAPI = respostaCompleta.data.allCommunities;      
+      setCommunity(communityDatoAPI)
+    })
+  }, []);
 
   const handleCreateCommunity = (event) => {
     event.preventDefault();
+    const formData = new FormData(event.target);
 
-    const inputValue = new FormData(event.target);
-    setCommunity([
-      ...community, 
-      {
-        title: inputValue.get('title'),
-        image: inputValue.get('image'),
-        url: inputValue.get('url')
-      }
-    ]);
+    const communityData = {
+      title: formData.get('title'),
+      imageUrl: formData.get('image'),
+      urlMedia: formData.get('media'),
+      creatorSlug: user
+    }
+
+    fetch('/api/communities', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(communityData)
+    })
+    .then(async (response) => {
+      const dados = await response.json();
+      setCommunity([
+        ...community, 
+        dados.registroCriado
+      ])
+    })
   }
 
   return (
@@ -73,21 +139,23 @@ export default function Home() {
             <form onSubmit={(event)=>handleCreateCommunity(event)}>
               <input
                 type="text"
-                name="title"               
+                name="title"
+                required              
                 placeholder="Qual vai ser o nome da sua comunidade?"
                 aria-label="Qual vai ser o nome da sua comunidade?"
               />              
               <input
                 type="text"
-                name="image"               
+                name="image"
+                required              
                 placeholder="Coloque uma URL para usarmos de capa"
                 aria-label="Coloque uma URL para usarmos de capa"
               />
               <input
                 type="text"
-                name="url"
-                placeholder="Link de sua rede social"
-                aria-label="Link de sua rede social"
+                name="media"
+                placeholder="Link de seu site/rede social"
+                aria-label="Link de seu site/rede social"
               />
               <button>Criar comunidade</button>
             </form>
@@ -95,6 +163,7 @@ export default function Home() {
         </div>
 
         <div className="profileRelationsArea" style={{ gridArea: 'profileRelationsArea' }}>
+          <ProfileRelationsBox title="Seguidores" items={followers} />
           <ProfileRelationsBoxWrapper>
             <h2 className="smallTitle">
               Pessoas da comunidade ({usersFavorites.length})
@@ -103,7 +172,7 @@ export default function Home() {
             <ul>
               {usersFavorites.map((user, index) => (
                   <li key={index}>
-                    <a href={`/users/${user}`} >
+                    <a href={`http://github.com/${user}`} target="_blank" >
                       <img src={`http://github.com/${user}.png`} />
                       <span>{user}</span>
                     </a>
@@ -113,11 +182,14 @@ export default function Home() {
           </ProfileRelationsBoxWrapper>
 
           <ProfileRelationsBoxWrapper>
+            <h2 className="smallTitle">
+              Comunidades ({community.length})
+            </h2>
             <ul>
               {community.map((item, index) => (
                   <li key={index}>
-                    <a href={`${item.url}`} target="_blank">
-                      <img src={`http://github.com/${item.image}.png`} />
+                    <a href={item.urlMedia} target="_blank">
+                      <img src={item.imageUrl} />
                       <span>{item.title}</span>
                     </a>
                   </li>
